@@ -16,6 +16,7 @@ STRIPE="#F2F6FC"
 RED="#D6455D"
 WARN="#D98E04"
 FONT="Segoe UI"
+SORTS=("Name (A-Z)","Name (Z-A)","Average (High to Low)","Average (Low to High)")
 
 class Node:
     def __init__(self,nm,q1,q2,q3):
@@ -79,6 +80,35 @@ class StudentList:
         r.q3=q3
         return True
 
+    def before(self,a,b,by,reverse):
+        if by=="name":
+            x=a.nm.lower()
+            y=b.nm.lower()
+        else:
+            x=a.ave()
+            y=b.ave()
+        if reverse:
+            return x>y
+        return x<y
+
+    def sort(self,by,reverse=False):
+        new_head=None
+        cur=self.head
+        while cur is not None:
+            nxt=cur.next
+            cur.next=None
+            if new_head is None or self.before(cur,new_head,by,reverse):
+                cur.next=new_head
+                new_head=cur
+            else:
+                p=new_head
+                while p.next is not None and not self.before(cur,p.next,by,reverse):
+                    p=p.next
+                cur.next=p.next
+                p.next=cur
+            cur=nxt
+        self.head=new_head
+
     def save(self,path=FILE):
         with open(path,"w",newline="") as f:
             w=csv.writer(f)
@@ -120,6 +150,7 @@ class StudentApp:
         self.q3=tk.StringVar()
         self.msg=tk.StringVar(value="Ready.")
         self.summary=tk.StringVar()
+        self.sort_var=tk.StringVar(value=SORTS[0])
 
         self.style()
         self.build()
@@ -208,6 +239,10 @@ class StudentApp:
         s.configure("Treeview.Heading",background=ACCENT,foreground="white",font=(FONT,10,"bold"),padding=7,relief="flat")
         s.map("Treeview.Heading",background=[("active",ACCENT_DARK)])
         s.configure("Vertical.TScrollbar",background=ACCENT,troughcolor=BG,bordercolor=BG,arrowcolor="white")
+        s.configure("TCombobox",fieldbackground="white",background=ACCENT,foreground=TEXT,bordercolor=ACCENT,arrowcolor="white",padding=5)
+        s.map("TCombobox",fieldbackground=[("readonly","white")],foreground=[("readonly",TEXT)],selectbackground=[("readonly","white")],selectforeground=[("readonly",TEXT)])
+        self.win.option_add("*TCombobox*Listbox.selectBackground",ACCENT)
+        self.win.option_add("*TCombobox*Listbox.font",(FONT,10))
 
     def build(self):
         ttk.Label(self.win,text="Student Record System",style="Title.TLabel").pack(fill=tk.X)
@@ -256,6 +291,13 @@ class StudentApp:
         ttk.Button(menu,text="Exit",command=self.exit,style="Exit.TButton").pack(fill=tk.X,padx=10,pady=(3,10))
 
     def build_notebook(self,parent):
+        bar=ttk.Frame(parent)
+        bar.pack(fill=tk.X,padx=8,pady=(8,0))
+        ttk.Label(bar,text="Sort by:").pack(side=tk.LEFT)
+        combo=ttk.Combobox(bar,textvariable=self.sort_var,values=SORTS,state="readonly",width=22)
+        combo.pack(side=tk.LEFT,padx=8)
+        ttk.Button(bar,text="Sort",command=self.sort).pack(side=tk.LEFT)
+
         nb=ttk.Notebook(parent)
         nb.pack(fill=tk.BOTH,expand=True,padx=8,pady=8)
 
@@ -423,6 +465,19 @@ class StudentApp:
         else:
             self.popup("warning","Not Found","Record not found.")
             self.msg.set("Record not found.")
+
+    def sort(self):
+        choice=self.sort_var.get()
+        if choice=="Name (A-Z)":
+            self.st.sort("name",False)
+        elif choice=="Name (Z-A)":
+            self.st.sort("name",True)
+        elif choice=="Average (High to Low)":
+            self.st.sort("ave",True)
+        else:
+            self.st.sort("ave",False)
+        self.refresh()
+        self.msg.set(f"Sorted by {choice}.")
 
     def import_csv(self):
         path=filedialog.askopenfilename(filetypes=[("CSV files","*.csv")])
